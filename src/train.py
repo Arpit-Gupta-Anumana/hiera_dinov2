@@ -31,10 +31,15 @@ SAVE_CHECKPOINT = True
 CHECKPOINT_DIR = "checkpoints/"
 
 # --- IMPORTANT: Update this path to your downloaded CAMUS dataset ---
-CAMUS_ROOT_DIR = "/Users/arpit.gupta/Documents/Hiera + DinoV2/data/CAMUS_public"
-
-
+#for mac
+#CAMUS_ROOT_DIR = "/Users/arpit.gupta/Documents/Hiera + DinoV2/data/CAMUS_public"
+#for gpu
+# In src/train.py
+# --- IMPORTANT: Update this path to your downloaded CAMUS dataset ---
+CAMUS_ROOT_DIR = "/home/arpit_gupta/hiera_dinov2/data/CAMUS_public"
 # --- 2. TRAINING and VALIDATION FUNCTIONS ---
+
+
 def train_fn(loader, model, optimizer, loss_fn, scaler=None):
     """
     Runs one epoch of training.
