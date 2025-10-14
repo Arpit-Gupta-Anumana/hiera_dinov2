@@ -17,12 +17,15 @@ import albumentations as A
 
 
 # --- 1. HYPERPARAMETERS and CONFIGURATION ---
-DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu") # cuda:0 export_CUDA_VISIBLE_DEVICES=0
+##DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu") # cuda:0 export_CUDA_VISIBLE_DEVICES=0
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# cuda:0 export_CUDA_VISIBLE_DEVICES=0
+
 LEARNING_RATE = 1e-4
-BATCH_SIZE = 4 # Adjust based on your GPU memory
+BATCH_SIZE = 10 # Adjust based on your GPU memory
 NUM_EPOCHS = 50 # Start with a smaller number to test, e.g., 5-10
 NUM_CLASSES = 3 # Background, Left Ventricle, Left Atrium for CAMUS
-NUM_WORKERS = 0 # Set to 0 for macOS to avoid potential issues with MPS
+NUM_WORKERS = 4 # Set to 0 for macOS to avoid potential issues with MPS
 PIN_MEMORY = True
 SAVE_CHECKPOINT = True
 CHECKPOINT_DIR = "checkpoints/"
