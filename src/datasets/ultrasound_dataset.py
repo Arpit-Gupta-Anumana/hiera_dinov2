@@ -101,16 +101,14 @@ class CAMUSDataset(Dataset):
         mask = mask_nifti.get_fdata()
         mask = np.squeeze(mask)
         
-        # Ensure mask is integer type for class labels if multi-class
-        mask = mask.astype(np.float32) 
+        # --- DATA CLEANING & TYPE CORRECTION ---
+        # 1. Clip invalid labels: The dataset contains some pixels with labels > 2.
+        #    We map these invalid labels to the background class (0).
+        mask[mask > 2] = 0
         
-        # For CAMUS, the ground truth often has specific integer labels:
-        # e.g., 0 for background, 1 for LV, 2 for LA.
-        # The paper mentions "left ventricle (gray) and atrium (white)".
-        # This implies specific pixel values in the mask.
-        # You might need to map these to 0, 1, 2... if they are something else
-        # e.g., mask[mask == LV_VALUE] = 1.0, mask[mask == LA_VALUE] = 2.0
-        # For now, we'll assume the loaded mask directly represents class labels (0, 1, ...)
+        # 2. Correct datatype: Semantic masks should use integer types.
+        #    uint8 is the standard and most efficient for labels 0, 1, 2.
+        mask = mask.astype(np.uint8)
         
         # Add channel dimension to mask (H, W) -> (H, W, 1) for Albumentations
         mask = np.expand_dims(mask, axis=-1)
