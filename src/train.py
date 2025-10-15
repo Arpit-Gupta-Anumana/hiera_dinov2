@@ -36,7 +36,7 @@ CHECKPOINT_DIR = "checkpoints/"
 #for gpu
 # In src/train.py
 # --- IMPORTANT: Update this path to your downloaded CAMUS dataset ---
-CAMUS_ROOT_DIR = "/home/arpit_gupta/hiera_dinov2/data/CAMUS_public"
+CAMUS_ROOT_DIR = "/mnt/sdd/arpit/hiera_dinov2/data/CAMUS_public"
 # --- 2. TRAINING and VALIDATION FUNCTIONS ---
 
 
