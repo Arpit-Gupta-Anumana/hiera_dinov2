@@ -7,3 +7,4 @@ monai
 albumentations
 scikit-image
 matplotlib
+timm
