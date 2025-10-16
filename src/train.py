@@ -28,7 +28,7 @@ NUM_CLASSES = 5 # Background, Left Ventricle, Left Atrium for CAMUS
 NUM_WORKERS = 4 # Set to 0 for macOS to avoid potential issues with MPS
 PIN_MEMORY = True
 SAVE_CHECKPOINT = True
-CHECKPOINT_DIR = "checkpoints/"
+CHECKPOINT_DIR = "checkpoints_ICE/"
 
 # --- IMPORTANT: Update this path to your downloaded CAMUS dataset ---
 #for mac
