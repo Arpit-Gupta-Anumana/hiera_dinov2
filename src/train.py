@@ -17,18 +17,18 @@ import albumentations as A
 
 
 # --- 1. HYPERPARAMETERS and CONFIGURATION ---
-DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu") # cuda:0 export_CUDA_VISIBLE_DEVICES=0
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 LEARNING_RATE = 1e-4
-BATCH_SIZE = 4 # Adjust based on your GPU memory
+BATCH_SIZE = 10 # Adjust based on your GPU memory
 NUM_EPOCHS = 50 # Start with a smaller number to test, e.g., 5-10
 NUM_CLASSES = 5 # Background, Left Ventricle, Left Atrium for CAMUS
-NUM_WORKERS = 0 # Set to 0 for macOS to avoid potential issues with MPS
+NUM_WORKERS = 4 # Set to 0 for macOS to avoid potential issues with MPS
 PIN_MEMORY = True
 SAVE_CHECKPOINT = True
 CHECKPOINT_DIR = "checkpoints_ice4class/"
 
 # --- IMPORTANT: Update this path to your downloaded CAMUS dataset ---
-CAMUS_ROOT_DIR = "/Users/arpit.gupta/Documents/Hiera + DinoV2/data/Dataset004_ICE4Classes/"
+CAMUS_ROOT_DIR = "/mnt/sdc/arpit/hiera_dinov2/data/Dataset004_ICE4Classes/"
 
 
 # --- 2. TRAINING and VALIDATION FUNCTIONS ---
