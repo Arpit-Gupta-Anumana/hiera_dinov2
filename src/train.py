@@ -5,6 +5,12 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import os
 
+
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
+
+
 # Import our custom modules
 from .datasets.ultrasound_dataset import CAMUSDataset
 from .models.ultrasound_segmenter import UltrasoundSegmenter
@@ -98,95 +104,110 @@ def val_fn(loader, model, loss_fn):
 
 # --- 3. MAIN SCRIPT ---
 def main():
-    print(f"Using device: {DEVICE}")
+    # --- 1. DDP SETUP ---
+    # torchrun will set these environment variables for each process
+    local_rank = int(os.environ["LOCAL_RANK"])
+    rank = int(os.environ["RANK"])
+    world_size = int(os.environ["WORLD_SIZE"])
 
-    # Create checkpoint directory if it doesn't exist
-    if not os.path.exists(CHECKPOINT_DIR):
-        os.makedirs(CHECKPOINT_DIR)
+    # Initialize the process group for communication
+    dist.init_process_group("nccl") # NCCL is the backend for NVIDIA GPUs
 
-    # --- Data Loading and Transforms ---
-    # Define transformations from the paper
-    train_transform = A.Compose([
-        A.Resize(224, 224),
-        A.HorizontalFlip(p=0.5),
-        A.Rotate(limit=15, p=0.5),
-        A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, rotate_limit=0, p=0.5),
-        A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
-        A.GaussNoise(var_limit=(10.0, 50.0), p=0.5),
-        A.GaussianBlur(blur_limit=(3, 7), p=0.5),
-        A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], max_pixel_value=255.0),
-        ToTensorV2(),
-    ])
+    # The device for this specific process is its local rank
+    DEVICE = f"cuda:{local_rank}"
+    torch.cuda.set_device(DEVICE)
 
-    val_transform = A.Compose([
-        A.Resize(224, 224),
-        A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], max_pixel_value=255.0),
-        ToTensorV2(),
-    ])
+    if rank == 0:
+        print(f"Starting DDP with {world_size} GPUs.")
+        print(f"Using device: {DEVICE}")
 
-    # Dataset and DataLoader setup
-    # The new dataset loader will handle the train/val split internally
-    # Note: The nnU-Net format doesn't have a default validation split. 
-    # For now, we'll use the training set for both training and validation.
-    # A more advanced approach would be to implement cross-validation.
+    # --- 2. PATHS and CONFIG (mostly unchanged) ---
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.join(script_dir, '..', '..')
+    CAMUS_ROOT_DIR = os.path.join(project_root, "data", "Dataset004_ICE4Classes")
+    CHECKPOINT_DIR = "checkpoints_ice4class_ddp/" # New checkpoint dir
+
+    # --- 3. DATA LOADING with DISTRIBUTED SAMPLER ---
+    # Data transforms remain the same
+    train_transform = A.Compose([...]) # Your existing transforms
+    val_transform = A.Compose([...])   # Your existing transforms
+    
     train_dataset = CAMUSDataset(dataset_root=CAMUS_ROOT_DIR, split="train", transform=train_transform)
-    val_dataset = CAMUSDataset(dataset_root=CAMUS_ROOT_DIR, split="train", transform=val_transform) # Using train set for validation for now
+    val_dataset = CAMUSDataset(dataset_root=CAMUS_ROOT_DIR, split="train", transform=val_transform)
 
-
-
-
+    # DDP requires a DistributedSampler to ensure each process gets a unique subset of data
+    train_sampler = DistributedSampler(train_dataset, num_replicas=world_size, rank=rank, shuffle=True)
+    val_sampler = DistributedSampler(val_dataset, num_replicas=world_size, rank=rank, shuffle=False)
 
     train_loader = DataLoader(
-        train_dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, pin_memory=PIN_MEMORY, shuffle=True
+        train_dataset, 
+        batch_size=BATCH_SIZE, 
+        num_workers=NUM_WORKERS, 
+        pin_memory=True, 
+        sampler=train_sampler,
+        shuffle=False # Shuffle is handled by the sampler, must be False here
     )
     val_loader = DataLoader(
-        val_dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, pin_memory=PIN_MEMORY, shuffle=False
+        val_dataset, 
+        batch_size=BATCH_SIZE, 
+        num_workers=NUM_WORKERS, 
+        pin_memory=True, 
+        sampler=val_sampler,
+        shuffle=False
     )
     
-    print(f"Training dataset size: {len(train_dataset)}")
-    print(f"Validation dataset size: {len(val_dataset)}")
+    if rank == 0:
+        print(f"Training dataset size: {len(train_dataset)}")
+        print(f"Validation dataset size: {len(val_dataset)}")
     
-    # --- Model, Loss, Optimizer ---
+    # --- 4. MODEL, LOSS, OPTIMIZER ---
+    # Model must be moved to the correct device *before* DDP wrapping
     model = UltrasoundSegmenter(num_classes=NUM_CLASSES).to(DEVICE)
-    
-    # The paper's method freezes the backbones and only trains the adapters and decoder.
-    # For simplicity, we will train the decoder and the DINOv2 projection layer.
-    # The backbones in our wrappers are already frozen (requires_grad=False).
-    params_to_train = [p for p in model.parameters() if p.requires_grad]
-    print(f"Number of trainable parameters: {sum(p.numel() for p in params_to_train)}")
+    model = DDP(model, device_ids=[local_rank]) # DDP: Wrap the model
 
-    # Loss function from MONAI (includes Softmax)
+    params_to_train = [p for p in model.parameters() if p.requires_grad]
+    
+    if rank == 0:
+        print(f"Number of trainable parameters: {sum(p.numel() for p in params_to_train)}")
+
     loss_fn = DiceCELoss(to_onehot_y=True, softmax=True)
-    
     optimizer = optim.Adam(params_to_train, lr=LEARNING_RATE)
-    
-    # Optional: Learning Rate Scheduler (Cosine Decay as in paper)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=NUM_EPOCHS)
     
-    # --- Main Training Loop ---
+    # --- 5. MAIN TRAINING LOOP ---
     best_dice_score = -1.0
     
     for epoch in range(NUM_EPOCHS):
-        print(f"\n--- Epoch {epoch+1}/{NUM_EPOCHS} ---")
+        # Set epoch for the sampler to ensure shuffling is different each epoch
+        train_loader.sampler.set_epoch(epoch)
+
+        if rank == 0:
+            print(f"\n--- Epoch {epoch+1}/{NUM_EPOCHS} ---")
         
         train_loss = train_fn(train_loader, model, optimizer, loss_fn)
         val_loss, val_dice = val_fn(val_loader, model, loss_fn)
         
-        # Update scheduler
         scheduler.step()
         
-        # Save checkpoint if it's the best model so far
-        if SAVE_CHECKPOINT and val_dice > best_dice_score:
-            best_dice_score = val_dice
-            checkpoint = {
-                "state_dict": model.state_dict(),
-                "optimizer": optimizer.state_dict(),
-                "epoch": epoch,
-                "best_dice_score": best_dice_score,
-            }
-            checkpoint_path = os.path.join(CHECKPOINT_DIR, "best_model.pth.tar")
-            print(f"==> New best model found! Saving checkpoint to {checkpoint_path}")
-            torch.save(checkpoint, checkpoint_path)
+        # Only the main process (rank 0) should save checkpoints and print
+        if rank == 0:
+            if SAVE_CHECKPOINT and val_dice > best_dice_score:
+                best_dice_score = val_dice
+                # When saving a DDP model, we save its underlying .module.state_dict()
+                checkpoint = {
+                    "state_dict": model.module.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                    "epoch": epoch,
+                    "best_dice_score": best_dice_score,
+                }
+                if not os.path.exists(CHECKPOINT_DIR):
+                    os.makedirs(CHECKPOINT_DIR)
+                checkpoint_path = os.path.join(CHECKPOINT_DIR, "best_model.pth.tar")
+                print(f"==> New best model found! Saving checkpoint to {checkpoint_path}")
+                torch.save(checkpoint, checkpoint_path)
+
+    # --- 6. CLEANUP ---
+    dist.destroy_process_group()
 
 if __name__ == "__main__":
     main()
