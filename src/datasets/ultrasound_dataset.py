@@ -6,126 +6,114 @@ from torch.utils.data import Dataset, DataLoader
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from typing import List, Tuple
+import os
+import torch
+import numpy as np
+import nibabel as nib
+from torch.utils.data import Dataset
+from typing import List, Tuple
+
+import os
+import torch
+import numpy as np
+import nibabel as nib
+from torch.utils.data import Dataset
+from typing import List, Tuple
 
 class CAMUSDataset(Dataset):
-    def __init__(self, nifti_base_dir: str, split_file_path: str, transform=None):
+    def __init__(self, dataset_root: str, split: str = "train", transform=None):
         """
         Args:
-            nifti_base_dir (str): Path to the 'database_nifti' directory.
-            split_file_path (str): Path to the split file (e.g., 'subgroup_training.txt').
-            transform (albumentations.Compose, optional): Transformations to apply. Defaults to None.
+            dataset_root (str): Path to the root of the dataset.
+            split (str): 'train' or 'test'.
+            transform (albumentations.Compose, optional): Transformations to apply.
         """
-        self.nifti_base_dir = nifti_base_dir
+        self.dataset_root = dataset_root
+        self.split = split
         self.transform = transform
-        self.samples = self._load_samples(split_file_path)
+        
+        split_suffix = "Tr" if self.split == "train" else "Ts"
+        self.image_dir = os.path.join(dataset_root, f"images{split_suffix}")
+        self.label_dir = os.path.join(dataset_root, f"labels{split_suffix}")
+        
+        # The 'samples' list will now store tuples of (image_path, mask_path, slice_index)
+        self.samples = self._load_and_unroll_samples()
 
         if not self.samples:
-            raise ValueError(f"No samples loaded from split file: {split_file_path}")
+            raise ValueError(f"No valid, unrolled samples found. Check dataset structure and content.")
+        
+        print(f"Successfully loaded and unrolled {len(self.samples)} 2D slices for the '{split}' set.")
 
-    def _load_samples(self, split_file_path: str) -> List[Tuple[str, str]]:
+    def _load_and_unroll_samples(self) -> List[Tuple[str, str, int]]:
         """
-        Reads the split file and creates a list of (image_path, mask_path) tuples.
+        Loads all valid file pairs and unrolls the 3D volumes into a list of 2D slices.
         """
-        samples = []
-        with open(split_file_path, 'r') as f:
-            patient_ids = [line.strip() for line in f if line.strip()]
+        unrolled_samples = []
+        image_filenames = sorted([f for f in os.listdir(self.image_dir) if f.endswith('_0000.nii.gz')])
 
-        for patient_id in patient_ids:
-            patient_folder = os.path.join(self.nifti_base_dir, patient_id)
-            if not os.path.exists(patient_folder):
-                print(f"Warning: Patient folder {patient_folder} not found. Skipping.")
-                continue
-            
-            # The paper mentions 'end-diastole and end-systole frames' and 
-            # 'two- and four-chamber views'.
-            # We need to iterate through the relevant NIfTI files for each patient.
-            # Example: patient0001_2CH_ED.nii.gz, patient0001_2CH_ED_gt.nii.gz
-            # patient0001_2CH_ES.nii.gz, patient0001_2CH_ES_gt.nii.gz
-            # patient0001_4CH_ED.nii.gz, patient0001_4CH_ED_gt.nii.gz
-            # patient0001_4CH_ES.nii.gz, patient0001_4CH_ES_gt.nii.gz
+        print(f"Found {len(image_filenames)} volumes to process...")
+        for image_fname in image_filenames:
+            label_fname = image_fname.replace('_0000', '')
+            image_path = os.path.join(self.image_dir, image_fname)
+            label_path = os.path.join(self.label_dir, label_fname)
 
-            # Let's assume we want to process all ED/ES 2CH/4CH images and their GT
-            # You might need to refine this based on your specific task (e.g., only 2CH ED)
-            views = ["2CH", "4CH"]
-            states = ["ED", "ES"]
+            if os.path.exists(label_path):
+                try:
+                    # Load the NIfTI file just to get its shape
+                    img_nifti = nib.load(image_path)
+                    num_slices = img_nifti.shape[2] # Shape is (H, W, Depth)
 
-            for view in views:
-                for state in states:
-                    image_filename = f"{patient_id}_{view}_{state}.nii.gz"
-                    mask_filename = f"{patient_id}_{view}_{state}_gt.nii.gz"
-
-                    image_path = os.path.join(patient_folder, image_filename)
-                    mask_path = os.path.join(patient_folder, mask_filename)
-
-                    if os.path.exists(image_path) and os.path.exists(mask_path):
-                        samples.append((image_path, mask_path))
-                    else:
-                        print(f"Warning: Missing image or mask for {patient_id}, {view}, {state}. Skipping.")
-
-        return samples
+                    # Create a sample for each slice in the volume
+                    for slice_idx in range(num_slices):
+                        unrolled_samples.append((image_path, label_path, slice_idx))
+                except Exception as e:
+                    print(f"Warning: Could not read shape of {image_fname}. Skipping. Error: {e}")
+        
+        return unrolled_samples
 
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        image_path, mask_path = self.samples[idx]
+        # 1. Get the path and the specific slice index for this sample
+        image_path, mask_path, slice_idx = self.samples[idx]
 
-        # Load NIfTI image
-        img_nifti = nib.load(image_path)
-        # NIfTI data is typically accessed via .get_fdata() which returns a numpy array
-        # It can be 3D (H, W, D) or even 4D (H, W, D, T).
-        # For CAMUS, ED/ES files are usually 2D slices (H, W) or (H, W, 1) if single slice.
-        # We need to ensure it's (H, W) or (H, W, C) for Albumentations.
-        image = img_nifti.get_fdata()
-        
-        # Squeeze any singleton dimensions, e.g., (H, W, 1) -> (H, W)
-        image = np.squeeze(image) 
-        
-        # Check if it's still 3D (e.g., if it's a series of slices), and pick one if necessary.
-        # However, for CAMUS ED/ES files, they usually represent a single 2D frame.
-        if image.ndim > 2:
-             print(f"Warning: Image {image_path} has more than 2 dimensions after squeeze: {image.shape}. Taking first slice.")
-             image = image[:,:,0] # Take the first slice if it's (H, W, D)
-        
-        # Normalize image to 0-255 range if not already (NIfTI data can have various ranges)
-        # This is a common step before applying ImageNet normalization
-        if image.max() > 1.0: # Assuming original data is float, e.g., 0-1 or 0-X
-            image = (image - image.min()) / (image.max() - image.min()) * 255.0
-        image = image.astype(np.float32) # Albumentations expects float32
+        try:
+            # 2. Load the full 3D volumes
+            img_nifti = nib.load(image_path)
+            image_volume = img_nifti.get_fdata()
+            
+            mask_nifti = nib.load(mask_path)
+            mask_volume = mask_nifti.get_fdata()
 
-        # Convert grayscale to 3-channel (RGB) for pre-trained models
-        image = np.stack([image, image, image], axis=-1) # (H, W) -> (H, W, 3)
+            # 3. Extract the specific 2D slice for this sample
+            image = image_volume[:, :, slice_idx]
+            mask = mask_volume[:, :, slice_idx]
 
-        # Load NIfTI mask
-        mask_nifti = nib.load(mask_path)
-        mask = mask_nifti.get_fdata()
-        mask = np.squeeze(mask)
-        
-        # --- DATA CLEANING & TYPE CORRECTION ---
-        # 1. Clip invalid labels: The dataset contains some pixels with labels > 2.
-        #    We map these invalid labels to the background class (0).
-        mask[mask > 2] = 0
-        
-        # 2. Correct datatype: Semantic masks should use integer types.
-        #    uint8 is the standard and most efficient for labels 0, 1, 2.
-        mask = mask.astype(np.uint8)
-        
-        # Add channel dimension to mask (H, W) -> (H, W, 1) for Albumentations
-        mask = np.expand_dims(mask, axis=-1)
+            # --- Continue with the same 2D processing as before ---
+            if image.max() > 1.0:
+                image = (image - image.min()) / (image.max() - image.min()) * 255.0
+            image = image.astype(np.float32)
+            image = np.stack([image, image, image], axis=-1)
 
-        # Apply transformations
-        if self.transform:
-            augmented = self.transform(image=image, mask=mask)
-            image = augmented['image']
-            mask = augmented['mask']
-        
-        # Ensure mask tensor has class labels as Long type for CrossEntropyLoss
-        # (ToTensorV2 will output float, so convert if needed for loss function later)
-        # For DiceCELoss, it typically expects float masks as probabilities or one-hot.
-        # If your loss function expects class indices for masks, you'll need mask.long()
-        # For now, let's keep it float, assuming the loss can handle it.
-        
-        return image, mask
+            mask[mask > 4] = 0
+            mask = mask.astype(np.uint8)
+            mask = np.expand_dims(mask, axis=-1)
+
+            # Apply transformations
+            if self.transform:
+                augmented = self.transform(image=image, mask=mask)
+                image = augmented['image']
+                mask = augmented['mask']
+            
+            return image, mask
+
+        except Exception as e:
+            print(f"\n[FATAL ERROR] An error occurred while processing index {idx}:")
+            print(f"  Image Path: {image_path} (Slice: {slice_idx})")
+            print(f"  Mask Path: {mask_path} (Slice: {slice_idx})")
+            print(f"  Error: {e}")
+            raise e
 
 # Example Usage
 if __name__ == "__main__":

@@ -5,10 +5,6 @@ from typing import List
 import sys
 import os
 
-# --- START: ADD THIS CODE BLOCK ---
-# This block adds the project's root directory to the Python path.
-# This allows us to import from the 'hiera' repository that we cloned.
-# It makes the import system robust and independent of where you run the script from.
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, project_root)
 # --- END: ADD THIS CODE BLOCK ---
@@ -17,11 +13,7 @@ sys.path.insert(0, project_root)
 
 from hiera.hiera import hiera_large_224
 
-    # ... (the rest of your code remains unchanged)
 
-
-# --- 1. Wrapper for Official Hiera Model (FINAL CORRECTED VERSION) ---
-# --- 1. Wrapper for Official Hiera Model (FINAL CORRECTED VERSION) ---
 # --- 1. Wrapper for Official Hiera Model (FINAL CORRECTED VERSION) ---
 class HieraFeatureExtractor(nn.Module):
     """

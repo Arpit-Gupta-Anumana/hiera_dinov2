@@ -17,29 +17,21 @@ import albumentations as A
 
 
 # --- 1. HYPERPARAMETERS and CONFIGURATION ---
-##DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu") # cuda:0 export_CUDA_VISIBLE_DEVICES=0
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# cuda:0 export_CUDA_VISIBLE_DEVICES=0
-
+DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu") # cuda:0 export_CUDA_VISIBLE_DEVICES=0
 LEARNING_RATE = 1e-4
-BATCH_SIZE = 10 # Adjust based on your GPU memory
+BATCH_SIZE = 4 # Adjust based on your GPU memory
 NUM_EPOCHS = 50 # Start with a smaller number to test, e.g., 5-10
-NUM_CLASSES = 3 # Background, Left Ventricle, Left Atrium for CAMUS
-NUM_WORKERS = 4 # Set to 0 for macOS to avoid potential issues with MPS
+NUM_CLASSES = 5 # Background, Left Ventricle, Left Atrium for CAMUS
+NUM_WORKERS = 0 # Set to 0 for macOS to avoid potential issues with MPS
 PIN_MEMORY = True
 SAVE_CHECKPOINT = True
-CHECKPOINT_DIR = "checkpoints/"
+CHECKPOINT_DIR = "checkpoints_ice4class/"
 
 # --- IMPORTANT: Update this path to your downloaded CAMUS dataset ---
-#for mac
-#CAMUS_ROOT_DIR = "/Users/arpit.gupta/Documents/Hiera + DinoV2/data/CAMUS_public"
-#for gpu
-# In src/train.py
-# --- IMPORTANT: Update this path to your downloaded CAMUS dataset ---
-CAMUS_ROOT_DIR = "/mnt/sdc/arpit/hiera_dinov2/data/CAMUS_public"
+CAMUS_ROOT_DIR = "/Users/arpit.gupta/Documents/Hiera + DinoV2/data/Dataset004_ICE4Classes/"
+
+
 # --- 2. TRAINING and VALIDATION FUNCTIONS ---
-
-
 def train_fn(loader, model, optimizer, loss_fn, scaler=None):
     """
     Runs one epoch of training.
@@ -131,16 +123,18 @@ def main():
         A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], max_pixel_value=255.0),
         ToTensorV2(),
     ])
-    
-    # Dataset and DataLoader setup
-    nifti_base_dir = os.path.join(CAMUS_ROOT_DIR, "database_nifti")
-    split_base_dir = os.path.join(CAMUS_ROOT_DIR, "database_split")
-    
-    train_split_file = os.path.join(split_base_dir, "subgroup_training.txt")
-    val_split_file = os.path.join(split_base_dir, "subgroup_validation.txt")
 
-    train_dataset = CAMUSDataset(nifti_base_dir, train_split_file, transform=train_transform)
-    val_dataset = CAMUSDataset(nifti_base_dir, val_split_file, transform=val_transform)
+    # Dataset and DataLoader setup
+    # The new dataset loader will handle the train/val split internally
+    # Note: The nnU-Net format doesn't have a default validation split. 
+    # For now, we'll use the training set for both training and validation.
+    # A more advanced approach would be to implement cross-validation.
+    train_dataset = CAMUSDataset(dataset_root=CAMUS_ROOT_DIR, split="train", transform=train_transform)
+    val_dataset = CAMUSDataset(dataset_root=CAMUS_ROOT_DIR, split="train", transform=val_transform) # Using train set for validation for now
+
+
+
+
 
     train_loader = DataLoader(
         train_dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, pin_memory=PIN_MEMORY, shuffle=True
