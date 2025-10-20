@@ -122,9 +122,8 @@ def main():
         print(f"Using device: {DEVICE}")
 
     # --- 2. PATHS and CONFIG (mostly unchanged) ---
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.join(script_dir, '..', '..')
-    CAMUS_ROOT_DIR = os.path.join(project_root, "data", "Dataset004_ICE4Classes")
+    CAMUS_ROOT_DIR = "/mnt/sdc/arpit/hiera_dinov2/data/Dataset004_ICE4Classes"
+
     CHECKPOINT_DIR = "checkpoints_ice4class_ddp/" # New checkpoint dir
 
     # --- 3. DATA LOADING with DISTRIBUTED SAMPLER ---
