@@ -25,7 +25,7 @@ import albumentations as A
 # --- 1. HYPERPARAMETERS and CONFIGURATION ---
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 LEARNING_RATE = 1e-4
-BATCH_SIZE = 10 # Adjust based on your GPU memory
+BATCH_SIZE = 32 # Adjust based on your GPU memory
 NUM_EPOCHS = 50 # Start with a smaller number to test, e.g., 5-10
 NUM_CLASSES = 5 # Background, Left Ventricle, Left Atrium for CAMUS
 NUM_WORKERS = 4 # Set to 0 for macOS to avoid potential issues with MPS
