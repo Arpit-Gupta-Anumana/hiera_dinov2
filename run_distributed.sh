@@ -12,4 +12,4 @@ torchrun \
     --nnodes=1 \
     --rdzv_id=100 \
     --rdzv_backend=c10d \
-    src/train.py
+    -m src.train
