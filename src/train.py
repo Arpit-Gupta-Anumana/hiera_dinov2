@@ -34,7 +34,7 @@ SAVE_CHECKPOINT = True
 CHECKPOINT_DIR = "checkpoints_ice4class/"
 
 # --- IMPORTANT: Update this path to your downloaded CAMUS dataset ---
-CAMUS_ROOT_DIR = "/mnt/sdc/arpit/hiera_dinov2/data/Dataset004_ICE4Classes/"
+CAMUS_ROOT_DIR = "/home/arpit_gupta/GPU/hiera_dinov2/data/Dataset004_ICE4Classes"
 
 
 # --- 2. TRAINING and VALIDATION FUNCTIONS ---
