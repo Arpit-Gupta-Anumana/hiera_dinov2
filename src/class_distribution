@@ -1,0 +1,29 @@
+
+Found 238 label volumes to analyze.
+Analyzing Volumes: 100%|██████████████████████| 238/238 [04:54<00:00,  1.24s/it]
+
+
+--- Dataset Class Statistics Report ---
+============================================================
+--- PIXEL DISTRIBUTION (Class Imbalance) ---
+Class Name                         Pixel Count   Percentage
+------------------------------------------------------------
+Background                       7,395,769,201       94.86%
+LA (Left Atrium)                   389,121,660        4.99%
+LV (Left Ventricle)                  6,467,553        0.08%
+LPV (Left Pulmonary Vein)            3,982,321        0.05%
+RPV (Right Pulmonary Vein)           1,395,265        0.02%
+------------------------------------------------------------
+Total Pixels                     7,796,736,000
+
+--- SLICE PRESENCE (How often each class appears) ---
+Class Name                         Slice Count   Percentage
+------------------------------------------------------------
+Background                              11,280      100.00%
+LA (Left Atrium)                         9,259       82.08%
+LV (Left Ventricle)                      1,548       13.72%
+LPV (Left Pulmonary Vein)                  809        7.17%
+RPV (Right Pulmonary Vein)                 233        2.07%
+------------------------------------------------------------
+Total Slices                            11,280
+
