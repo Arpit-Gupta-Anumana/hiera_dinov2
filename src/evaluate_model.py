@@ -13,14 +13,14 @@ from .utils import dice_score
 
 # --- 1. CONFIGURATION ---
 # Path to the best model checkpoint from your training run
-CHECKPOINT_PATH = "../checkpoints_ice4class_ddp/best_model.pth.tar"
+CHECKPOINT_PATH = "/home/arpit_gupta/hiera_dinov2/checkpoints_ice4class_ddp/best_model.pth.tar"
 
 # Path to the root of the dataset
-DATASET_ROOT = "../data/Dataset004_ICE4Classes"
+DATASET_ROOT = "/home/arpit_gupta/hiera_dinov2/data/Dataset004_ICE4Classes"
 
 # Model and data configuration - MUST MATCH THE TRAINED MODEL
 NUM_CLASSES = 5
-BATCH_SIZE = 4 # Adjust based on your GPU memory
+BATCH_SIZE = 32 # Adjust based on your GPU memory
 NUM_WORKERS = 4
 
 # Map class indices to human-readable names for the report
