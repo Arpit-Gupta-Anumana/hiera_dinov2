@@ -162,6 +162,15 @@ To start the training process, run the `train.py` script as a module from the ro
 python -m src.train
 ```
 
+command to run Parallel Process:
+```bash
+torchrun --nproc_per_node=8 -m src.train
+```
+
+
+
+
+
 *   The script will print progress to the console, including training loss, validation loss, and the average Dice Score for each epoch.
 *   The best performing model (based on validation Dice score) will be saved to `checkpoints/best_model.pth.tar`.
 
@@ -172,6 +181,15 @@ To verify the model architecture and ensure all components are working correctly
 python src/models/ultrasound_segmenter.py
 ```
 A successful run will print `Model test successful with correct output shape!`.
+
+
+# Evaluation:
+Script for DICE score ( classwise ) evaluation added by the name of src/evaluate_model.py
+Command to run (from root dir):
+
+```bash
+python -m src.evaluate_model
+```
 
 ## Results
 
