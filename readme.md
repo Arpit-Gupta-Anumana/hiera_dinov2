@@ -201,6 +201,20 @@ During training, you should observe the following trends in the console output:
 
 Performance on the test set should be evaluated separately to gauge the model's final accuracy.
 
+______________________________________________________________________________________________________________________________
+# Results on the basic Model:
+
+Per-Class Dice Similarity Coefficient (DSC) ---
+Class Name                          Dice Score
+Background                              0.9943
+LA (Left Atrium)                        0.8179
+LV (Left Ventricle)                     0.7000
+LPV (Left Pulmonary Vein)               0.7733
+RPV (Right Pulmonary Vein)              0.9400
+Mean Foreground Dice                    0.8078
+
+
+_______________________________________________________________________________________________________________________________
 ## Citation
 If you use this work, please consider citing the original paper that inspired the architectural design (placeholder).
 
