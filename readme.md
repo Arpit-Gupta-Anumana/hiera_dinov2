@@ -221,3 +221,19 @@ If you use this work, please consider citing the original paper that inspired th
 ```
 [Paper Citation Here]
 ```
+
+
+
+## Updates on the Tensors of the Video Model
+Model instantiated successfully.
+
+Input Tensor Shape: torch.Size([1, 1, 16, 224, 224])
+
+--- Hiera Encoder Intermediate Shapes ---
+  Stage 1 Output Shape: torch.Size([1, 96, 8, 56, 56])
+  Stage 2 Output Shape: torch.Size([1, 192, 8, 28, 28])
+  Stage 3 Output Shape: torch.Size([1, 384, 8, 14, 14])
+  Stage 4 Output Shape: torch.Size([1, 768, 8, 7, 7])
+
+--- Final Model Output ---
+  Final Logit Shape: torch.Size([1, 5, 16, 224, 224])
