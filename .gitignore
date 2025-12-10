@@ -1,0 +1,12 @@
+# Large Data and Checkpoints
+data/
+checkpoints/
+checkpoints_hybrid_3d/
+checkpoints_ice4class_ddp/
+checkpoints_ice4class_ddp_1/
+
+.venv/
+.venv-GPU-311/
+__pycache__/
+
+.git/

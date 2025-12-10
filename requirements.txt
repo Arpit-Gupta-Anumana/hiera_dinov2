@@ -1,0 +1,10 @@
+torch
+torchvision
+torchaudio
+tqdm
+nibabel
+monai
+albumentations
+scikit-image
+matplotlib
+timm
